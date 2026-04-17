@@ -35,10 +35,10 @@ metadata:
         - python
     primaryEnv: GEMINI_API_KEY
     emoji: "🎭"
-    homepage: https://github.com/sterlingdon/wechat_skills
+    homepage: https://github.com/sterlingdon/wechat-sticker-generator
     install:
       - kind: pip
-        package: rembg onnxruntime pillow requests google-genai dashscope
+        package: rembg==2.0.75 onnxruntime==1.24.4 pillow==12.1.1 requests==2.32.5 google-genai==1.68.0 dashscope==1.25.15
 ---
 
 # 📄 WeChat Sticker Generator (微信表情包套件生成器)
@@ -152,7 +152,6 @@ pip install onnxruntime
   "enable_bg_removal": true,
   "bg_removal_method": "dual",
   "bg_removal_model": "isnet-anime",
-  "bg_removal_script_path": "【可选】自定义去背景脚本路径",
   "bg_alpha_matting": true,
   "bg_sharpen_edges": false,
   "bg_sharpen_threshold": 200,
@@ -345,7 +344,6 @@ pip install onnxruntime
   "enable_bg_removal": true,
   "bg_removal_method": "dual",
   "bg_removal_model": "isnet-anime",
-  "bg_removal_script_path": "",
   "bg_alpha_matting": true,
   "bg_sharpen_edges": false,
   "bg_sharpen_threshold": 200,
@@ -703,7 +701,6 @@ cat > "$DIR_PATH/params.json" << 'EOF'
   "enable_bg_removal": true,
   "bg_removal_method": "dual",
   "bg_removal_model": "isnet-anime",
-  "bg_removal_script_path": "",
   "bg_alpha_matting": true,
   "bg_sharpen_edges": false,
   "bg_sharpen_threshold": 200,

@@ -7,6 +7,7 @@ from PIL import Image
 from modules.background import apply_background_removal
 from modules.constants import GRID_CONFIG, DEFAULT_GRID_SIZE
 
+
 def _resolve_bg_processing_config(target_dir):
     params_path = os.path.join(target_dir, "params.json")
     default_config = {
@@ -18,7 +19,7 @@ def _resolve_bg_processing_config(target_dir):
         "sharpen_threshold": 200,
         "grid_size": DEFAULT_GRID_SIZE,
     }
-    
+
     if not os.path.exists(params_path):
         return default_config
 
@@ -33,7 +34,6 @@ def _resolve_bg_processing_config(target_dir):
     enabled = params.get("enable_bg_removal", background_type == "transparent")
     method = params.get("bg_removal_method", "rembg")
     model = params.get("bg_removal_model", "isnet-anime")
-    script_path = params.get("bg_removal_script_path", "")
     alpha_matting = params.get("bg_alpha_matting", True)
     sharpen_edges = params.get("bg_sharpen_edges", False)
     sharpen_threshold = params.get("bg_sharpen_threshold", 200)
@@ -43,19 +43,19 @@ def _resolve_bg_processing_config(target_dir):
         "enabled": bool(enabled),
         "method": method,
         "model": model,
-        "script_path": script_path,
         "alpha_matting": bool(alpha_matting),
         "sharpen_edges": bool(sharpen_edges),
         "sharpen_threshold": int(sharpen_threshold),
         "grid_size": grid_size,
     }
 
+
 def _slice_grid_to_cells_original(img, width, height, grid_size=None):
     grid_size = grid_size or DEFAULT_GRID_SIZE
     config = GRID_CONFIG.get(grid_size, GRID_CONFIG[DEFAULT_GRID_SIZE])
     rows = config["rows"]
     cols = config["cols"]
-    
+
     item_width = width // cols
     item_height = height // rows
     cells = []
@@ -66,6 +66,7 @@ def _slice_grid_to_cells_original(img, width, height, grid_size=None):
             box = (left, upper, left + item_width, upper + item_height)
             cells.append(img.crop(box))
     return cells
+
 
 def _cleanup_obsolete_flat_sticker_outputs(target_dir):
     try:
@@ -79,6 +80,7 @@ def _cleanup_obsolete_flat_sticker_outputs(target_dir):
                 os.remove(path)
     except OSError:
         pass
+
 
 def process_single_grid(target_dir, bg_cfg=None):
     grid_path = os.path.join(target_dir, "original_grid.png")
@@ -96,14 +98,21 @@ def process_single_grid(target_dir, bg_cfg=None):
     prompt_path = os.path.join(target_dir, "prompt.txt")
     is_animated = False
     grid_size = bg_cfg.get("grid_size", DEFAULT_GRID_SIZE)
-    
+
     if os.path.exists(prompt_path):
-        with open(prompt_path, 'r', encoding='utf-8') as f:
+        with open(prompt_path, "r", encoding="utf-8") as f:
             content = f.read()
-            if "16-frame animation" in content or "16-frame animation sprite sheet" in content:
+            if (
+                "16-frame animation" in content
+                or "16-frame animation sprite sheet" in content
+            ):
                 grid_size = 16
                 is_animated = True
-            elif "9-frame animation" in content or "9-frame animation sprite sheet" in content or "A HIGHLY DYNAMIC 9-frame animation" in content:
+            elif (
+                "9-frame animation" in content
+                or "9-frame animation sprite sheet" in content
+                or "A HIGHLY DYNAMIC 9-frame animation" in content
+            ):
                 grid_size = 9
                 is_animated = True
             elif "16 different expressions" in content or "SIXTEEN" in content:
@@ -123,8 +132,8 @@ def process_single_grid(target_dir, bg_cfg=None):
         print(f"Error opening {grid_path}: {e}")
         return False
 
-    if img.mode != 'RGBA':
-        img = img.convert('RGBA')
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
 
     width, height = img.size
 
@@ -134,12 +143,18 @@ def process_single_grid(target_dir, bg_cfg=None):
         c_top = (height - size) // 2
         img = img.crop((c_left, c_top, c_left + size, c_top + size))
         width, height = size, size
-        print(f"[*] Post-process: Auto-cropped non-square canvas into a {size}x{size} square before grid slicing.")
+        print(
+            f"[*] Post-process: Auto-cropped non-square canvas into a {size}x{size} square before grid slicing."
+        )
 
     img_original = img.copy()
 
-    cells_original_high_res = _slice_grid_to_cells_original(img_original, width, height, grid_size)
-    cells_original = [c.resize((240, 240), Image.Resampling.LANCZOS) for c in cells_original_high_res]
+    cells_original_high_res = _slice_grid_to_cells_original(
+        img_original, width, height, grid_size
+    )
+    cells_original = [
+        c.resize((240, 240), Image.Resampling.LANCZOS) for c in cells_original_high_res
+    ]
 
     cells_nobg = None
     if bg_cfg.get("enabled"):
@@ -154,15 +169,24 @@ def process_single_grid(target_dir, bg_cfg=None):
                 if img_nobg is not img_original:
                     nobg_path = os.path.join(target_dir, "original_grid_nobg.png")
                     img_nobg.save(nobg_path, "PNG")
-                    print(f"[✓] Saved full grid after OpenCV background removal: {nobg_path}")
-                    
-                    cells_nobg_high_res = _slice_grid_to_cells_original(img_nobg, width, height, grid_size)
+                    print(
+                        f"[✓] Saved full grid after OpenCV background removal: {nobg_path}"
+                    )
+
+                    cells_nobg_high_res = _slice_grid_to_cells_original(
+                        img_nobg, width, height, grid_size
+                    )
                     any_modified = True
             except Exception as e:
-                print(f"[!] OpenCV background removal failed on full grid: {e}. Falling back to cell-by-cell.", file=sys.stderr)
+                print(
+                    f"[!] OpenCV background removal failed on full grid: {e}. Falling back to cell-by-cell.",
+                    file=sys.stderr,
+                )
 
         if not any_modified:
-            print(f"[*] Extracting {total_frames} individual bounding-boxes before background removal for ultimate precision...")
+            print(
+                f"[*] Extracting {total_frames} individual bounding-boxes before background removal for ultimate precision..."
+            )
             for cell in cells_original_high_res:
                 nobg_cell = apply_background_removal(cell, bg_cfg)
                 cells_nobg_high_res.append(nobg_cell)
@@ -180,12 +204,20 @@ def process_single_grid(target_dir, bg_cfg=None):
 
                 nobg_path = os.path.join(target_dir, "original_grid_nobg.png")
                 stitched.save(nobg_path, "PNG")
-                print(f"[✓] Saved stitched full grid after precise cell-by-cell background removal: {nobg_path}")
+                print(
+                    f"[✓] Saved stitched full grid after precise cell-by-cell background removal: {nobg_path}"
+                )
 
         if any_modified:
-            cells_nobg = [c.resize((240, 240), Image.Resampling.LANCZOS) for c in cells_nobg_high_res]
+            cells_nobg = [
+                c.resize((240, 240), Image.Resampling.LANCZOS)
+                for c in cells_nobg_high_res
+            ]
         else:
-            print("[!] Background removal skipped or failed for all cells; not writing original_grid_nobg.png", file=sys.stderr)
+            print(
+                "[!] Background removal skipped or failed for all cells; not writing original_grid_nobg.png",
+                file=sys.stderr,
+            )
 
     _cleanup_obsolete_flat_sticker_outputs(target_dir)
     legacy_white = os.path.join(target_dir, "white")
@@ -195,7 +227,9 @@ def process_single_grid(target_dir, bg_cfg=None):
     os.makedirs(dir_origin, exist_ok=True)
     for i in range(total_frames):
         idx = i + 1
-        cells_original[i].save(os.path.join(dir_origin, f"sticker_{idx:02d}.png"), "PNG")
+        cells_original[i].save(
+            os.path.join(dir_origin, f"sticker_{idx:02d}.png"), "PNG"
+        )
     if is_animated:
         cells_original[0].save(
             os.path.join(dir_origin, "animated_sticker.gif"),
@@ -221,12 +255,15 @@ def process_single_grid(target_dir, bg_cfg=None):
                 loop=0,
                 disposal=2,
             )
-        print(f"[✓] Outputs: {dir_origin}/ (origin, crop only) + {dir_nobg}/ (transparent)")
+        print(
+            f"[✓] Outputs: {dir_origin}/ (origin, crop only) + {dir_nobg}/ (transparent)"
+        )
     else:
         if os.path.isdir(dir_nobg):
             shutil.rmtree(dir_nobg, ignore_errors=True)
         print(f"[✓] Outputs: {dir_origin}/ (origin only; no nobg/)")
     return True
+
 
 def _collect_export_gifs(workspace_root):
     if not os.path.isdir(workspace_root):
@@ -235,7 +272,8 @@ def _collect_export_gifs(workspace_root):
     anim_dirs = [
         item
         for item in sorted(os.listdir(workspace_root))
-        if item.startswith("anim_") and os.path.isdir(os.path.join(workspace_root, item))
+        if item.startswith("anim_")
+        and os.path.isdir(os.path.join(workspace_root, item))
     ]
     export_root = os.path.join(workspace_root, "export_gifs")
 
@@ -265,7 +303,10 @@ def _collect_export_gifs(workspace_root):
     parts = [f"{origin_out}/"]
     if nobg_any:
         parts.append(f"{nobg_out}/")
-    print(f"[✓] export_gifs: {' + '.join(parts)} — copies of animated_sticker.gif for export")
+    print(
+        f"[✓] export_gifs: {' + '.join(parts)} — copies of animated_sticker.gif for export"
+    )
+
 
 def _pack_wechat_export(workspace_root, is_static):
     if not os.path.isdir(workspace_root):
@@ -283,7 +324,9 @@ def _pack_wechat_export(workspace_root, is_static):
     items = []
 
     if is_static:
-        static_dirs = sorted([d for d in os.listdir(workspace_root) if d.startswith("static_")])
+        static_dirs = sorted(
+            [d for d in os.listdir(workspace_root) if d.startswith("static_")]
+        )
         for d in static_dirs:
             base = os.path.join(workspace_root, d)
             target = os.path.join(base, "nobg")
@@ -295,7 +338,9 @@ def _pack_wechat_export(workspace_root, is_static):
                     if os.path.exists(fpath):
                         items.append(fpath)
     else:
-        anim_dirs = sorted([d for d in os.listdir(workspace_root) if d.startswith("anim_")])
+        anim_dirs = sorted(
+            [d for d in os.listdir(workspace_root) if d.startswith("anim_")]
+        )
         for d in anim_dirs:
             base = os.path.join(workspace_root, d)
             target = os.path.join(base, "nobg")
@@ -343,10 +388,10 @@ def _pack_wechat_export(workspace_root, is_static):
         first_frame.resize((50, 50), Image.Resampling.LANCZOS).save(icon_path, "PNG")
 
     banner_path = os.path.join(export_root, "banner.png")
-    banner = Image.new('RGB', (750, 400), (255, 248, 231))
+    banner = Image.new("RGB", (750, 400), (255, 248, 231))
     if first_frame:
         scaled = first_frame.resize((240, 240), Image.Resampling.LANCZOS)
-        if scaled.mode == 'RGBA':
+        if scaled.mode == "RGBA":
             banner.paste(scaled, (255, 80), scaled)
         else:
             banner.paste(scaled, (255, 80))
@@ -358,7 +403,9 @@ def _pack_wechat_export(workspace_root, is_static):
         if os.path.exists(filepath):
             size_kb = os.path.getsize(filepath) / 1024.0
             if size_kb > max_kb:
-                warnings.append(f"⚠️ {name_desc} 体积超标: {size_kb:.1f}KB (限制 < {max_kb}KB)")
+                warnings.append(
+                    f"⚠️ {name_desc} 体积超标: {size_kb:.1f}KB (限制 < {max_kb}KB)"
+                )
 
     for f in os.listdir(main_dir):
         check_size(os.path.join(main_dir, f), 500, f"主图 {f}")
@@ -371,7 +418,7 @@ def _pack_wechat_export(workspace_root, is_static):
 
     print(f"\n[✓] WeChat standard export package created at: {export_root}")
     print(f"    Total expressions: {len(items)}")
-    print(f"    - main/ (240x240 { 'PNG' if is_static else 'GIF' })")
+    print(f"    - main/ (240x240 {'PNG' if is_static else 'GIF'})")
     print(f"    - thumb/ (120x120 PNG)")
     print(f"    - cover.png (240x240 PNG)")
     print(f"    - icon.png (50x50 PNG)")
@@ -383,17 +430,23 @@ def _pack_wechat_export(workspace_root, is_static):
             try:
                 params = json.load(f)
                 set_name = params.get("set_name", "未命名表情包")
-                set_desc = params.get("set_description", "微信官方表情包套件自动生成产物")
+                set_desc = params.get(
+                    "set_description", "微信官方表情包套件自动生成产物"
+                )
                 copy_info = params.get("copyright_info", "AI Generated")
                 info_path = os.path.join(export_root, "upload_info.txt")
                 with open(info_path, "w", encoding="utf-8") as txt:
-                    txt.write("【微信表情包后台上传资料库】（可直接复制粘贴到微信后台）\n")
-                    txt.write("="*50 + "\n")
+                    txt.write(
+                        "【微信表情包后台上传资料库】（可直接复制粘贴到微信后台）\n"
+                    )
+                    txt.write("=" * 50 + "\n")
                     txt.write(f"表情包名称 (不超过8字): {set_name}\n")
                     txt.write(f"表情包介绍 (不超过60字): {set_desc}\n")
                     txt.write(f"版权信息 / 艺术家: {copy_info}\n")
-                    txt.write("="*50 + "\n")
-                print(f"    - upload_info.txt (包含供直接复制粘贴的 表情包名称/介绍/版权 等填单材料)")
+                    txt.write("=" * 50 + "\n")
+                print(
+                    f"    - upload_info.txt (包含供直接复制粘贴的 表情包名称/介绍/版权 等填单材料)"
+                )
             except Exception as e:
                 pass
 
@@ -404,6 +457,7 @@ def _pack_wechat_export(workspace_root, is_static):
         print("   (提示：若GIF超标，请尝试在外部压制降低帧数或色彩断层)\n")
     else:
         print("\n[✓] 产物体检通过: 所有文件体积均符合微信官方限制。\n")
+
 
 def process_workspace(target_dir):
     bg_cfg = _resolve_bg_processing_config(target_dir)
@@ -420,7 +474,9 @@ def process_workspace(target_dir):
     else:
         for item in sorted(os.listdir(target_dir)):
             sub_dir = os.path.join(target_dir, item)
-            if os.path.isdir(sub_dir) and (item.startswith("anim_") or item.startswith("static_")):
+            if os.path.isdir(sub_dir) and (
+                item.startswith("anim_") or item.startswith("static_")
+            ):
                 if item.startswith("static_"):
                     is_static = True
                 process_single_grid(sub_dir, bg_cfg=bg_cfg)
